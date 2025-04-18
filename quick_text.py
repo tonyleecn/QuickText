@@ -936,13 +936,13 @@ class QuickText:
         btn_frame = ttk.Frame(frame)
         btn_frame.pack(fill=tk.X, pady=10)
 
-        # 取消按钮
-        cancel_btn = ttk.Button(btn_frame, text="取消", command=dialog.destroy)
-        cancel_btn.pack(side=tk.LEFT, padx=5)
-
         # 确定按钮
         ok_btn = ttk.Button(btn_frame, text="确定", command=lambda: on_ok())
-        ok_btn.pack(side=tk.RIGHT, padx=5)
+        ok_btn.pack(side=tk.LEFT, padx=5)
+
+        # 取消按钮
+        cancel_btn = ttk.Button(btn_frame, text="取消", command=dialog.destroy)
+        cancel_btn.pack(side=tk.RIGHT, padx=5)
 
         def on_ok():
             name = name_entry.get().strip()
@@ -960,25 +960,6 @@ class QuickText:
             self.update_group_combo()
             self.setup_group_tabs()
             dialog.destroy()
-
-    def delete_group(self):
-        """删除所选分组"""
-        try:
-            idx = self.groups_listbox.curselection()[0]
-            name = self.groups_listbox.get(idx)
-
-            if len(self.presets) <= 1:
-                messagebox.showerror("错误", "至少需要保留一个分组")
-                return
-
-            if messagebox.askyesno("确认", f"确定要删除分组 '{name}'? 这将删除该分组下的所有预设。"):
-                del self.presets[name]
-                self.save_presets()
-                self.refresh_groups_list()
-                self.update_group_combo()
-                self.setup_group_tabs()
-        except (IndexError, KeyError):
-            messagebox.showerror("错误", "请先选择一个分组")
 
     def rename_group(self):
         """重命名分组"""
@@ -1009,14 +990,14 @@ class QuickText:
             btn_frame = ttk.Frame(frame)
             btn_frame.pack(fill=tk.X, pady=10)
 
+            # 确定按钮
+            ok_btn = ttk.Button(btn_frame, text="确定", command=lambda: on_ok())
+            ok_btn.pack(side=tk.LEFT, padx=5)
+
             # 取消按钮
             cancel_btn = ttk.Button(
                 btn_frame, text="取消", command=dialog.destroy)
-            cancel_btn.pack(side=tk.LEFT, padx=5)
-
-            # 确定按钮
-            ok_btn = ttk.Button(btn_frame, text="确定", command=lambda: on_ok())
-            ok_btn.pack(side=tk.RIGHT, padx=5)
+            cancel_btn.pack(side=tk.RIGHT, padx=5)
 
             def on_ok():
                 new_name = name_entry.get().strip()
@@ -1044,12 +1025,34 @@ class QuickText:
         except (IndexError, KeyError):
             messagebox.showerror("错误", "请先选择一个分组")
 
+    def delete_group(self):
+        """删除所选分组"""
+        try:
+            idx = self.groups_listbox.curselection()[0]
+            name = self.groups_listbox.get(idx)
+
+            if len(self.presets) <= 1:
+                messagebox.showerror("错误", "至少需要保留一个分组")
+                return
+
+            if messagebox.askyesno("确认", f"确定要删除分组 '{name}'? 这将删除该分组下的所有预设。"):
+                del self.presets[name]
+                self.save_presets()
+                self.refresh_groups_list()
+                self.update_group_combo()
+                self.setup_group_tabs()
+        except (IndexError, KeyError):
+            messagebox.showerror("错误", "请先选择一个分组")
+
     def add_preset(self):
         """添加新预设"""
         group = self.group_var.get()
         if not group:
             messagebox.showerror("错误", "请先选择或创建一个分组")
             return
+
+        # 先清空内容编辑框
+        self.content_text.delete(1.0, tk.END)
 
         # 创建对话框
         dialog = tk.Toplevel(self.root)
@@ -1073,13 +1076,13 @@ class QuickText:
         btn_frame = ttk.Frame(frame)
         btn_frame.pack(fill=tk.X, pady=10)
 
-        # 取消按钮
-        cancel_btn = ttk.Button(btn_frame, text="取消", command=dialog.destroy)
-        cancel_btn.pack(side=tk.LEFT, padx=5)
-
         # 确定按钮
         ok_btn = ttk.Button(btn_frame, text="确定", command=lambda: on_ok())
-        ok_btn.pack(side=tk.RIGHT, padx=5)
+        ok_btn.pack(side=tk.LEFT, padx=5)
+
+        # 取消按钮
+        cancel_btn = ttk.Button(btn_frame, text="取消", command=dialog.destroy)
+        cancel_btn.pack(side=tk.RIGHT, padx=5)
 
         def on_ok():
             name = name_entry.get().strip()
@@ -1092,7 +1095,10 @@ class QuickText:
                 return
 
             # 获取当前编辑区域的内容作为新预设的内容
+            # 因为我们已经清空了编辑框，内容将为空
             content = self.content_text.get(1.0, tk.END).rstrip()
+
+            # 添加新预设，内容为空
             self.presets[group][name] = content
             self.save_presets()
             self.refresh_preset_list()
@@ -1157,14 +1163,14 @@ class QuickText:
             btn_frame = ttk.Frame(frame)
             btn_frame.pack(fill=tk.X, pady=10)
 
+            # 确定按钮
+            ok_btn = ttk.Button(btn_frame, text="确定", command=lambda: on_ok())
+            ok_btn.pack(side=tk.LEFT, padx=5)
+
             # 取消按钮
             cancel_btn = ttk.Button(
                 btn_frame, text="取消", command=dialog.destroy)
-            cancel_btn.pack(side=tk.LEFT, padx=5)
-
-            # 确定按钮
-            ok_btn = ttk.Button(btn_frame, text="确定", command=lambda: on_ok())
-            ok_btn.pack(side=tk.RIGHT, padx=5)
+            cancel_btn.pack(side=tk.RIGHT, padx=5)
 
             def on_ok():
                 new_name = name_entry.get().strip()
