@@ -1,0 +1,17 @@
+# 自动检测文本文件并执行LF规范化
+* text=auto
+
+# 源代码
+*.py text
+*.json text
+*.md text
+*.txt text
+*.bat text eol=crlf
+
+# 二进制文件
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.exe binary 

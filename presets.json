@@ -1,0 +1,11 @@
+{
+  "常用": {
+    "查看端口": "netstat -ano | findstr \"LISTENING\"",
+    "Git常用命令": "# 创建新分支并切换\ngit checkout -b 新分支名\n\n# 拉取最新代码\ngit pull origin 分支名\n\n# 提交代码\ngit add .\ngit commit -m \"提交信息\"\ngit push origin 分支名\n\n# create a new repository on the command line\ngit init\ngit add .\ngit commit -m \"first commit\"\ngit branch -M main\ngit remote add origin git@github.com:tonyleecn/QuickText.git\ngit push -u origin main"
+  },
+  "Python": {
+    "W激活虚拟环境": "venv\\Scripts\\Activate",
+    "L激活虚拟环境": "source venv/bin/activate",
+    "创建虚拟环境": "python3 -m venv venv"
+  }
+}
