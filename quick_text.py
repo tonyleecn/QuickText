@@ -19,6 +19,9 @@ class QuickText:
         # 窗口大小已在main函数中通过center_window设置
         self.root.resizable(True, True)
 
+        # 设置窗口最小尺寸
+        self.root.minsize(864, 500)
+
         # 数据存储路径
         self.data_dir = self.get_data_dir()
         self.data_file = os.path.join(self.data_dir, "presets.json")
@@ -173,6 +176,22 @@ class QuickText:
         left_frame = ttk.Frame(quick_paned)
         quick_paned.add(left_frame, weight=1)
 
+        # 添加搜索框
+        search_frame = ttk.Frame(left_frame)
+        search_frame.pack(fill=tk.X, pady=(0, 5))
+
+        ttk.Label(search_frame, text="搜索预设:").pack(side=tk.LEFT)
+
+        self.search_var = tk.StringVar()
+        self.search_var.trace_add("write", self.on_search_change)
+
+        search_entry = ttk.Entry(search_frame, textvariable=self.search_var)
+        search_entry.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=5)
+
+        clear_button = ttk.Button(
+            search_frame, text="清除", command=self.clear_search)
+        clear_button.pack(side=tk.LEFT)
+
         # 说明标签
         ttk.Label(left_frame, text="点击文本按钮复制内容到剪贴板:").pack(
             anchor=tk.W, pady=(0, 5))
@@ -261,90 +280,7 @@ class QuickText:
 
     def refresh_group_buttons(self, group_name, items):
         """刷新指定分组的按钮"""
-        if group_name not in self.group_button_frames:
-            return
-
-        button_frame = self.group_button_frames[group_name]
-        canvas = self.group_canvases[group_name]
-
-        # 清除现有按钮
-        for widget in button_frame.winfo_children():
-            widget.destroy()
-
-        # 创建按钮流布局
-        button_frame.grid_columnconfigure(0, weight=1)
-
-        # 获取canvas的当前宽度
-        canvas_width = canvas.winfo_width()
-        if canvas_width <= 1:  # 初始时可能还没有宽度
-            canvas_width = canvas.winfo_reqwidth()
-            if canvas_width <= 1:
-                canvas_width = 300  # 默认初始宽度
-
-        # 按钮配置
-        min_btn_width = 100  # 按钮最小宽度
-        btn_padding = 10  # 按钮间距
-
-        # 创建临时标签计算文本宽度
-        temp_label = tk.Label(button_frame, font=("Arial", 9))
-
-        # 创建按钮
-        x, y = 0, 0
-        max_width = 0
-
-        for name, content in items.items():
-            # 计算文本宽度
-            temp_label.config(text=name)
-            temp_label.update_idletasks()
-            text_width = temp_label.winfo_width() + 30  # 添加一些额外空间
-            btn_width = max(min_btn_width, text_width)
-
-            # 创建按钮框架以容纳按钮
-            btn_frame = ttk.Frame(button_frame, width=btn_width)
-
-            # 检查是否需要换行
-            if x > 0 and (x * btn_width + x * btn_padding) > canvas_width:
-                x = 0
-                y += 1
-
-            # 创建按钮并放置
-            btn = tk.Button(
-                btn_frame,
-                text=name,
-                command=lambda g=group_name, n=name, c=content: self.show_and_copy_preset(
-                    g, n, c),
-                highlightthickness=0,
-                bd=0,
-                relief="flat",
-                takefocus=0,
-                bg="#e8e8e8",  # 浅灰背景
-                fg="#333333",  # 深色文字
-                activebackground="#d0d0d0",  # 点击时的背景色
-                activeforeground="#000000",  # 点击时的文字颜色
-                padx=10,
-                pady=5,
-                font=("Arial", 9),
-                wraplength=0  # 设置为0禁止文本自动换行
-            )
-            btn.pack(fill=tk.BOTH, expand=True)
-
-            # 放置按钮框架
-            btn_frame.grid(row=y, column=x, padx=5, pady=3, sticky="nsew")
-
-            # 配置网格权重
-            button_frame.grid_rowconfigure(y, weight=1)
-            button_frame.grid_columnconfigure(x, weight=1)
-
-            # 更新位置
-            x += 1
-            max_width = max(max_width, x)
-
-        # 销毁临时标签
-        temp_label.destroy()
-
-        # 添加窗口大小变化事件处理
-        canvas.bind("<Configure>", lambda e, g=group_name,
-                    i=items: self.on_canvas_resize(e, g, i))
+        self.create_buttons_for_items(group_name, items)
 
     def on_canvas_resize(self, event, group_name, items):
         """当画布大小变化时重新布局按钮"""
@@ -1260,8 +1196,229 @@ class QuickText:
         except (IndexError, KeyError):
             messagebox.showerror("错误", "请先选择一个预设")
 
+    def on_search_change(self, *args):
+        """当搜索框内容变化时调用此函数"""
+        search_text = self.search_var.get().lower()
 
-def center_window(window, width=600, height=500):
+        # 如果搜索框为空，恢复所有按钮
+        if not search_text:
+            self.refresh_all_group_buttons()
+            return
+
+        # 保存所有匹配的预设
+        matched_presets = {}
+
+        # 创建特殊的搜索结果分组，将所有匹配项合并显示
+        search_results = {}
+
+        # 遍历所有分组和预设
+        for group_name, items in self.presets.items():
+            group_matches = {}
+
+            for name, content in items.items():
+                # 搜索名称和内容
+                if (search_text in name.lower() or
+                        search_text in content.lower()):
+                    # 添加到原分组的匹配结果
+                    group_matches[name] = content
+
+                    # 添加到搜索结果，使用"分组名:预设名"作为键
+                    display_name = f"[{group_name}] {name}"
+                    search_results[display_name] = content
+
+            # 如果有匹配项，保存该分组的匹配结果
+            if group_matches:
+                matched_presets[group_name] = group_matches
+
+        # 首先清除所有分组的按钮
+        for group_name in self.presets.keys():
+            if group_name in self.group_button_frames:
+                button_frame = self.group_button_frames[group_name]
+                for widget in button_frame.winfo_children():
+                    widget.destroy()
+
+        # 检查是否已有"搜索结果"分组，如果没有则创建
+        search_tab_name = "搜索结果"
+        if search_tab_name not in self.group_frames:
+            # 创建搜索结果选项卡
+            search_frame = ttk.Frame(self.groups_notebook)
+            self.groups_notebook.add(search_frame, text=search_tab_name)
+            self.group_frames[search_tab_name] = search_frame
+
+            # 创建滚动区域
+            canvas = tk.Canvas(search_frame, width=300, height=200)
+            scrollbar = ttk.Scrollbar(
+                search_frame, orient=tk.VERTICAL, command=canvas.yview)
+
+            button_frame = ttk.Frame(canvas)
+
+            canvas.configure(yscrollcommand=scrollbar.set)
+            canvas.bind_all("<MouseWheel>", lambda event, c=canvas: c.yview_scroll(
+                int(-1*(event.delta/120)), "units"))
+            canvas.bind_all("<Button-4>", lambda event,
+                            c=canvas: c.yview_scroll(-1, "units"))
+            canvas.bind_all("<Button-5>", lambda event,
+                            c=canvas: c.yview_scroll(1, "units"))
+
+            scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+            canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+
+            # 创建按钮框架
+            canvas.create_window((0, 0), window=button_frame,
+                                 anchor=tk.NW, width=canvas.winfo_width())
+
+            # 更新Canvas的scrollregion
+            def update_scrollregion(event, c=canvas):
+                c.configure(scrollregion=c.bbox("all"))
+                # 调整按钮框架宽度与Canvas宽度一致
+                c.itemconfig(c.find_withtag("all")[0], width=c.winfo_width())
+
+            button_frame.bind("<Configure>", update_scrollregion)
+
+            # 存储引用
+            self.group_canvases[search_tab_name] = canvas
+            self.group_button_frames[search_tab_name] = button_frame
+
+            # 初始化分组的最后宽度记录
+            setattr(
+                self, f'last_width_{search_tab_name}', canvas.winfo_width())
+
+        # 显示搜索结果
+        if search_results:
+            # 选中搜索结果选项卡
+            for i, tab_id in enumerate(self.groups_notebook.tabs()):
+                if self.groups_notebook.tab(tab_id, "text") == search_tab_name:
+                    self.groups_notebook.select(i)
+                    break
+
+            # 创建一个特殊的show_and_copy_preset函数，用于搜索结果项
+            def create_search_result_handler(display_name, content):
+                # 从显示名称提取原始分组和名称
+                parts = display_name.split('] ', 1)
+                if len(parts) == 2:
+                    group = parts[0][1:]  # 去掉开头的'['
+                    name = parts[1]
+                    return lambda: self.show_and_copy_preset(group, name, content)
+                else:
+                    return lambda: self.copy_to_clipboard(content)
+
+            # 显示搜索结果
+            self.create_buttons_for_items(
+                search_tab_name, search_results, create_search_result_handler)
+
+    def create_buttons_for_items(self, group_name, items, command_func=None):
+        """为指定的项目创建按钮"""
+        if group_name not in self.group_button_frames:
+            return
+
+        button_frame = self.group_button_frames[group_name]
+        canvas = self.group_canvases[group_name]
+
+        # 清除现有按钮
+        for widget in button_frame.winfo_children():
+            widget.destroy()
+
+        # 创建按钮流布局
+        button_frame.grid_columnconfigure(0, weight=1)
+
+        # 获取canvas的当前宽度
+        canvas_width = canvas.winfo_width()
+        if canvas_width <= 1:  # 初始时可能还没有宽度
+            canvas_width = canvas.winfo_reqwidth()
+            if canvas_width <= 1:
+                canvas_width = 300  # 默认初始宽度
+
+        # 按钮配置
+        min_btn_width = 150  # 按钮最小宽度
+        btn_padding = 10  # 按钮间距
+
+        # 创建临时标签计算文本宽度
+        temp_label = tk.Label(button_frame, font=("Arial", 9))
+
+        # 创建按钮
+        x, y = 0, 0
+        max_width = 0
+
+        for name, content in items.items():
+            # 计算文本宽度
+            temp_label.config(text=name)
+            temp_label.update_idletasks()
+            text_width = temp_label.winfo_width() + 30  # 添加一些额外空间
+            btn_width = max(min_btn_width, text_width)
+
+            # 创建按钮框架以容纳按钮
+            btn_frame = ttk.Frame(button_frame, width=btn_width)
+
+            # 检查是否需要换行
+            if x > 0 and (x * btn_width + x * btn_padding) > canvas_width:
+                x = 0
+                y += 1
+
+            # 创建按钮并放置
+            if command_func is not None:
+                command = command_func(name, content)
+            else:
+                def command(g=group_name, n=name,
+                            c=content): return self.show_and_copy_preset(g, n, c)
+
+            btn = tk.Button(
+                btn_frame,
+                text=name,
+                command=command,
+                highlightthickness=0,
+                bd=0,
+                relief="flat",
+                takefocus=0,
+                bg="#e8e8e8",  # 浅灰背景
+                fg="#333333",  # 深色文字
+                activebackground="#d0d0d0",  # 点击时的背景色
+                activeforeground="#000000",  # 点击时的文字颜色
+                padx=10,
+                pady=5,
+                font=("Arial", 9),
+                wraplength=0  # 设置为0禁止文本自动换行
+            )
+            btn.pack(fill=tk.BOTH, expand=True)
+
+            # 放置按钮框架
+            btn_frame.grid(row=y, column=x, padx=5, pady=3, sticky="nsew")
+
+            # 配置网格权重
+            button_frame.grid_rowconfigure(y, weight=1)
+            button_frame.grid_columnconfigure(x, weight=1)
+
+            # 更新位置
+            x += 1
+            max_width = max(max_width, x)
+
+        # 销毁临时标签
+        temp_label.destroy()
+
+        # 添加窗口大小变化事件处理
+        canvas.bind("<Configure>", lambda e, g=group_name,
+                    i=items: self.on_canvas_resize(e, g, i))
+
+    def clear_search(self):
+        """清除搜索框内容"""
+        self.search_var.set("")
+        # 刷新所有按钮
+        self.refresh_all_group_buttons()
+
+        # 移除搜索结果选项卡
+        search_tab_name = "搜索结果"
+        for i, tab_id in enumerate(self.groups_notebook.tabs()):
+            if self.groups_notebook.tab(tab_id, "text") == search_tab_name:
+                self.groups_notebook.forget(tab_id)
+                if search_tab_name in self.group_frames:
+                    del self.group_frames[search_tab_name]
+                if search_tab_name in self.group_canvases:
+                    del self.group_canvases[search_tab_name]
+                if search_tab_name in self.group_button_frames:
+                    del self.group_button_frames[search_tab_name]
+                break
+
+
+def center_window(window, width=864, height=500):
     """使窗口居中显示在屏幕上"""
     # 获取屏幕宽度和高度
     screen_width = window.winfo_screenwidth()
